@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from smell_utils import read_raw_csv, normalize_to_baseline
+from smell_utils import *
 from multiclass_classifier import MultiClassClassifier
 from knearestneighbors_imp import KNearestNeighbors
 
@@ -29,6 +29,12 @@ def plot_over_time(channels_to_plot, df):
 	plt.show()
 
 if __name__ == '__main__':
+
+	read_from_robot('./datasets/Robot/')
+	exit(0)
+
+
+
 	smell_labels = {
 		"Cow": 0,
 		"Dirt": 1,
