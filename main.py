@@ -1,16 +1,15 @@
-import numpy as np
-import pandas as pd
-
-from smell_utils import *
-from multiclass_classifier import MultiClassClassifier
-from knearestneighbors_imp import KNearestNeighbors
-
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
-from torch.utils.data import DataLoader, TensorDataset
-import torch.nn as nn
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from torch.utils.data import DataLoader, TensorDataset
+
+from knearestneighbors_imp import KNearestNeighbors
+from smell_utils import *
+
+from randomforest_imp import RandomForestClassifier
+
 
 def plot_over_time(channels_to_plot, df):
 	# Plot each selected channel over time
@@ -30,63 +29,112 @@ def plot_over_time(channels_to_plot, df):
 
 if __name__ == '__main__':
 
-	read_from_robot('./datasets/Robot/')
-	exit(0)
-
-
-
 	smell_labels = {
-		"Cow": 0,
-		"Dirt": 1,
-		"Bacon": 2,
-		"Garbage": 3,
-		"Hot Wings": 4
+		"nosoda": 0,
+		"diet": 1,
+		"regular": 2
 	}
-	cow_baseline, cow_data = read_raw_csv('./datasets/Cow Sticker.csv')
-	bacon_baseline, bacon_data = read_raw_csv('./datasets/Bacon Sticker.csv')
-	dirt_baseline, dirt_data = read_raw_csv('./datasets/Dirt Sticker.csv')
-	garbage_baseline, garbage_data = read_raw_csv('./datasets/Garbage Sticker.csv')
-	hot_wings_baseline, hot_wings_data = read_raw_csv('./datasets/Hot Wings Sticker.csv')
 
-	cow_data_normal = normalize_to_baseline(cow_baseline, cow_data)
-	bacon_data_normal = normalize_to_baseline(bacon_baseline, bacon_data)
-	dirt_data_normal = normalize_to_baseline(dirt_baseline, dirt_data)
-	garbage_data_normal = normalize_to_baseline(garbage_baseline, garbage_data)
-	hot_wings_data_normal = normalize_to_baseline(hot_wings_baseline, hot_wings_data)
+	normal_prelim_data = []
+	normal_15_diet_data = []
+	normal_30_diet_data = []
+	normal_60_diet_data = []
+	normal_15_regular_data = []
+	normal_30_regular_data = []
+	normal_60_regular_data = []
+
+	for root, dirs, files in os.walk(r'C:\Users\sear234\Desktop\Containers\Breath_Datasets\Blood Glucose\Prelim (No Soda)'):
+		for file in files:
+			full_path = os.path.join(root, file)
+			baseline_prelim, data_prelim = read_raw_csv(full_path)
+			normal_prelim = normalize_to_baseline(baseline_prelim, data_prelim)
+			normal_prelim_data.append(normal_prelim)
+
+	for root, dirs, files in os.walk(r'C:\Users\sear234\Desktop\Containers\Breath_Datasets\Blood Glucose\15mins'):
+		for file in files:
+			full_path = os.path.join(root, file)
+			baseline_15, data_15 = read_raw_csv(full_path)
+			normal_15 = normalize_to_baseline(baseline_15, data_15)
+
+			if 'diet' in full_path.lower():
+				normal_15_diet_data.append(normal_15)
+			else:
+				normal_15_regular_data.append(normal_15)
+
+	for root, dirs, files in os.walk(r'C:\Users\sear234\Desktop\Containers\Breath_Datasets\Blood Glucose\30mins'):
+		for file in files:
+			full_path = os.path.join(root, file)
+			baseline_30, data_30 = read_raw_csv(full_path)
+			normal_30 = normalize_to_baseline(baseline_30, data_30)
+			if 'diet' in full_path.lower():
+				normal_30_diet_data.append(normal_30)
+			else:
+				normal_30_regular_data.append(normal_30)
+
+	for root, dirs, files in os.walk(r'C:\Users\sear234\Desktop\Containers\Breath_Datasets\Blood Glucose\60mins'):
+		for file in files:
+			full_path = os.path.join(root, file)
+			baseline_60, data_60 = read_raw_csv(full_path)
+			normal_60 = normalize_to_baseline(baseline_60, data_60)
+			if "diet" in full_path.lower():
+				normal_60_diet_data.append(normal_60)
+			else:
+				normal_60_regular_data.append(normal_60)
+
+
+	all_prelim_data = pd.concat(normal_prelim_data, axis=0, ignore_index=True)
+	all_15_diet_data = pd.concat(normal_15_diet_data, axis=0, ignore_index=True)
+	all_15_regular_data = pd.concat(normal_15_regular_data, axis=0, ignore_index=True)
+	all_30_diet_data = pd.concat(normal_30_diet_data, axis=0, ignore_index=True)
+	all_30_regular_data = pd.concat(normal_30_regular_data, axis=0, ignore_index=True)
+	all_60_diet_data = pd.concat(normal_60_diet_data, axis=0, ignore_index=True)
+	all_60_regular_data = pd.concat(normal_60_regular_data, axis=0, ignore_index=True)
+
 
 	# random channels, no idea if they even mean anything
 	# plot_over_time(['ch3', 'ch6', 'ch22', 'ch38', 'ch44', 'ch62'], cow_data_normal)
-	# plot_over_time(['ch3', 'ch6', 'ch22', 'ch38', 'ch44', 'ch62'], bacon_data_normal)
-	# plot_over_time(['ch3', 'ch6', 'ch22', 'ch38', 'ch44', 'ch62'], dirt_data_normal)
-	# plot_over_time(['ch3', 'ch6', 'ch22', 'ch38', 'ch44', 'ch62'], garbage_data_normal)
-	# plot_over_time(['ch3', 'ch6', 'ch22', 'ch38', 'ch44', 'ch62'], hot_wings_data_normal)
 
-	cow_data_normal['class'] = smell_labels["Cow"]
-	bacon_data_normal['class'] = smell_labels["Bacon"]
-	dirt_data_normal['class'] = smell_labels["Dirt"]
-	garbage_data_normal['class'] = smell_labels["Garbage"]
-	hot_wings_data_normal['class'] = smell_labels["Hot Wings"]
+	all_prelim_data['class'] = smell_labels["nosoda"]
+	all_15_diet_data['class'] = smell_labels["diet"]
+	all_30_diet_data['class'] = smell_labels["diet"]
+	all_60_diet_data['class'] = smell_labels["diet"]
+	all_15_regular_data['class'] = smell_labels["regular"]
+	all_30_regular_data['class'] = smell_labels["regular"]
+	all_60_regular_data['class'] = smell_labels["regular"]
 
-	all_data = pd.concat([cow_data_normal, bacon_data_normal, dirt_data_normal, garbage_data_normal, hot_wings_data_normal], ignore_index=True)
+	all_prelim_15_data = pd.concat([all_prelim_data, all_15_diet_data, all_15_regular_data], axis=0, ignore_index=True)
+	all_prelim_30_data = pd.concat([all_prelim_data, all_30_diet_data, all_30_regular_data], axis=0, ignore_index=True)
+	all_prelim_60_data = pd.concat([all_prelim_data, all_60_diet_data, all_60_regular_data], axis=0, ignore_index=True)
 
-	features = all_data.iloc[:, 1:-1].values  # Exclude timestamp and last column (assuming last column is the target)
-	labels = all_data.iloc[:, -1].values  # Last column as target
+	# all_prelim_15_data.to_csv('all_prelim_15_data.csv', index=False)
 
-	print(features.shape)
-	print(labels.shape)
+	# # trying to classify 15 mins
+	# features = all_prelim_15_data.iloc[:, 1:-1].values  # Exclude timestamp and last column (assuming last column is the class)
+	# labels = all_prelim_15_data.iloc[:, -1].values  # Last column as class
+
+	# # trying to classify 30 mins
+	# features = all_prelim_30_data.iloc[:,1:-1].values  # Exclude timestamp and last column (assuming last column is the class)
+	# labels = all_prelim_30_data.iloc[:, -1].values  # Last column as class
+
+	# trying to classify 60 mins
+	features = all_prelim_60_data.iloc[:,1:-1].values  # Exclude timestamp and last column (assuming last column is the class)
+	labels = all_prelim_60_data.iloc[:, -1].values  # Last column as class
+
+	print(f'Feature shape: {features.shape}')
+	print(f'Labels shape: {labels.shape}')
+	print()
 
 	# Split the data into training and validation sets
 	X_train, X_val, y_train, y_val = train_test_split(features, labels, test_size=0.2, random_state=42)
 
 	# Standardize features
-	# scaler = StandardScaler()
-	# X_train = scaler.fit_transform(X_train)
-	# X_val = scaler.transform(X_val)
+	scaler = StandardScaler()
+	X_train = scaler.fit_transform(X_train)
+	X_val = scaler.transform(X_val)
 
 	# Convert data to PyTorch tensors
 	# X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
-	# y_train_tensor = torch.tensor(y_train, dtype=torch.float32).unsqueeze(
-	# 	1)  # Add an extra dimension for binary classification
+	# y_train_tensor = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1)
 	# X_val_tensor = torch.tensor(X_val, dtype=torch.float32)
 	# y_val_tensor = torch.tensor(y_val, dtype=torch.float32).unsqueeze(1)
 	X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
@@ -101,9 +149,10 @@ if __name__ == '__main__':
 	train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 	val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
 
-############### TRAINING #################
+############### KNN TRAINING #################
+	print("KNN")
 	# Create an instance of the KNearestNeighbors class
-	k = 5  # Number of nearest neighbors
+	k = len(np.unique(labels))  # Number of nearest neighbors
 	knn = KNearestNeighbors(k)
 
 	# Fit the model with the training data
@@ -114,65 +163,22 @@ if __name__ == '__main__':
 
 	# Calculate accuracy
 	accuracy = np.mean(predictions == y_val_tensor.numpy())
-	print(f"Validation accuracy: {accuracy:.4f}")
-	# # Create model instance
-	# model = MultiClassClassifier(features)
-	#
-	# # Define loss function and optimizer
-	# criterion = nn.CrossEntropyLoss()
-	# optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-	#
-	# # Training loop
-	# num_epochs = 2000
-	#
-	# for epoch in range(num_epochs):
-	# 	model.train()  # Set model to training mode
-	# 	running_loss = 0.0
-	#
-	# 	for X_batch, y_batch in train_loader:
-	# 		y_batch	= y_batch.squeeze()
-	# 		optimizer.zero_grad()  # Zero the parameter gradients
-	# 		outputs = model(X_batch)  # Forward pass
-	# 		loss = criterion(outputs, y_batch.long())  # Calculate loss
-	# 		loss.backward()  # Backward pass
-	# 		optimizer.step()  # Update parameters
-	#
-	# 		running_loss += loss.item() * X_batch.size(0)
-	#
-	# 	# Calculate average loss
-	# 	avg_loss = running_loss / len(train_loader.dataset)
-	#
-	# 	print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {avg_loss:.4f}")
-	#
-	# 	# Validation
-	# 	model.eval()  # Set model to evaluation mode
-	# 	with torch.no_grad():
-	# 		correct = 0
-	# 		total = 0
-	# 		for X_batch, y_batch in val_loader:
-	# 			outputs = model(X_batch)
-	# 			_, predicted = torch.max(outputs, 1)  # Get class with the highest probability
-	# 			total += y_batch.size(0)
-	# 			correct += (predicted == y_batch.long()).sum().item()
-	#
-	# 		val_accuracy = correct / total
-	# 		print(f"Validation accuracy: {val_accuracy:.4f}")
+	print(f"Validation accuracy: {accuracy * 100:.2f}%")
+	print()
 
 
-##################### INFERENCE ######################
-	# # Sample new data for prediction
-	# new_data = [[6600.0, 6601.0, ..., 4100.0]]  # Replace with your new data
-	#
-	# # Standardize new data using the same scaler
-	# new_data = scaler.transform(new_data)
-	#
-	# # Convert new data to PyTorch tensor
-	# new_data_tensor = torch.tensor(new_data, dtype=torch.float32)
-	#
-	# # Predict
-	# model.eval()  # Set model to evaluation mode
-	# with torch.no_grad():
-	# 	output = model(new_data_tensor)
-	# 	_, prediction = torch.max(output, 1)  # Get the index of the class with the highest probability
-	#
-	# print(f"Prediction: Class {prediction.item()}")
+
+############### RANDOM FOREST TRAINING #################
+print("Random Forest")
+# Instantiate the random forest classifier
+rf_classifier = RandomForestClassifier(n_estimators=10, max_depth=3)
+
+# Train the random forest classifier
+rf_classifier.fit(X_train_tensor, y_train_tensor)
+
+# Evaluate the model on the test data
+y_pred = rf_classifier.predict(X_val_tensor.numpy())
+accuracy = np.mean(y_pred == y_val_tensor.numpy())
+print(f"Validation Accuracy: {accuracy * 100:.2f}%")
+print('\n')
+

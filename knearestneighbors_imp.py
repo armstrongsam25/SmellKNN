@@ -3,6 +3,8 @@ from collections import Counter
 import numpy as np
 import torch
 from sklearn.preprocessing import StandardScaler
+from matplotlib.colors import ListedColormap
+import matplotlib.pyplot as plt
 
 class KNearestNeighbors:
 	def __init__(self, k=5):
