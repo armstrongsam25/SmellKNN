@@ -4,11 +4,14 @@ import torch
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, TensorDataset
+import torch.nn as nn
+import torch.optim as optim
+from tqdm import tqdm
 
-from knearestneighbors_imp import KNearestNeighbors
 from smell_utils import *
-
+from knearestneighbors_imp import KNearestNeighbors
 from randomforest_imp import RandomForestClassifier
+from nn_imp import NeuralNetClassifier
 
 
 def plot_over_time(channels_to_plot, df):
@@ -112,13 +115,13 @@ if __name__ == '__main__':
 	# features = all_prelim_15_data.iloc[:, 1:-1].values  # Exclude timestamp and last column (assuming last column is the class)
 	# labels = all_prelim_15_data.iloc[:, -1].values  # Last column as class
 
-	# # trying to classify 30 mins
-	# features = all_prelim_30_data.iloc[:,1:-1].values  # Exclude timestamp and last column (assuming last column is the class)
-	# labels = all_prelim_30_data.iloc[:, -1].values  # Last column as class
+	# trying to classify 30 mins
+	features = all_prelim_30_data.iloc[:,1:-1].values  # Exclude timestamp and last column (assuming last column is the class)
+	labels = all_prelim_30_data.iloc[:, -1].values  # Last column as class
 
-	# trying to classify 60 mins
-	features = all_prelim_60_data.iloc[:,1:-1].values  # Exclude timestamp and last column (assuming last column is the class)
-	labels = all_prelim_60_data.iloc[:, -1].values  # Last column as class
+	# # trying to classify 60 mins
+	# features = all_prelim_60_data.iloc[:,1:-1].values  # Exclude timestamp and last column (assuming last column is the class)
+	# labels = all_prelim_60_data.iloc[:, -1].values  # Last column as class
 
 	print(f'Feature shape: {features.shape}')
 	print(f'Labels shape: {labels.shape}')
@@ -181,4 +184,71 @@ y_pred = rf_classifier.predict(X_val_tensor.numpy())
 accuracy = np.mean(y_pred == y_val_tensor.numpy())
 print(f"Validation Accuracy: {accuracy * 100:.2f}%")
 print('\n')
+
+############### CNN TRAINING #################
+print("CNN")
+
+# Instantiate your fully connected neural network model
+input_size = 44  # Adjust based on your input data shape
+output_size = 3  # Number of classes
+model = NeuralNetClassifier(input_size, output_size)
+
+# Define loss function and optimizer
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+# Move the model to GPU if available
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+
+# Define number of epochs
+num_epochs = 10000
+
+# Training loop
+for epoch in range(num_epochs):
+	# Training phase
+	model.train()
+	train_loss = 0.0
+	correct_train = 0
+	total_train = 0
+
+	for inputs, labels in tqdm(train_loader, desc=f'Epoch {epoch + 1}/{num_epochs}', leave=False):
+		inputs, labels = inputs.to(device), labels.to(device)
+		optimizer.zero_grad()
+		outputs = model(inputs)
+		loss = criterion(outputs, labels)
+		loss.backward()
+		optimizer.step()
+
+		train_loss += loss.item() * inputs.size(0)
+		_, predicted = torch.max(outputs, 1)
+		total_train += labels.size(0)
+		correct_train += (predicted == labels).sum().item()
+
+	train_loss = train_loss / len(train_loader.dataset)
+	train_accuracy = correct_train / total_train
+
+	# Validation phase
+	model.eval()
+	val_loss = 0.0
+	correct_val = 0
+	total_val = 0
+
+	with torch.no_grad():
+		for inputs, labels in val_loader:
+			inputs, labels = inputs.to(device), labels.to(device)
+			outputs = model(inputs)
+			loss = criterion(outputs, labels)
+
+			val_loss += loss.item() * inputs.size(0)
+			_, predicted = torch.max(outputs, 1)
+			total_val += labels.size(0)
+			correct_val += (predicted == labels).sum().item()
+
+	val_loss = val_loss / len(val_loader.dataset)
+	val_accuracy = correct_val / total_val
+
+	print(f'Epoch {epoch + 1}/{num_epochs}, '
+		  f'Train Loss: {train_loss:.4f}, Train Accuracy: {100 * train_accuracy:.2f}%, '
+		  f'Val Loss: {val_loss:.4f}, Val Accuracy: {100 * val_accuracy:.2f}%')
 
